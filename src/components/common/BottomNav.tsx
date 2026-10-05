@@ -23,9 +23,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           className={`flex-1 flex flex-col items-center justify-center h-full min-h-[44px] transition ${
             currentTab === 'home'
               ? 'text-sky-700 font-bold'
-              : 'text-slate-400 hover:text-slate-600'
+              : 'text-slate-500 hover:text-slate-600'
           }`}
           aria-label="Home"
+          aria-current={currentTab === 'home' ? 'page' : undefined}
         >
           <Home className={`w-5 h-5 ${currentTab === 'home' ? 'stroke-[2.5]' : ''}`} />
           <span className="text-[11px] mt-1 font-semibold">Home</span>
@@ -49,9 +50,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           className={`flex-1 flex flex-col items-center justify-center h-full min-h-[44px] transition ${
             currentTab === 'history'
               ? 'text-sky-700 font-bold'
-              : 'text-slate-400 hover:text-slate-600'
+              : 'text-slate-500 hover:text-slate-600'
           }`}
           aria-label="History"
+          aria-current={currentTab === 'history' ? 'page' : undefined}
         >
           <History className={`w-5 h-5 ${currentTab === 'history' ? 'stroke-[2.5]' : ''}`} />
           <span className="text-[11px] mt-1 font-semibold">History</span>
@@ -63,9 +65,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           className={`flex-1 flex flex-col items-center justify-center h-full min-h-[44px] transition ${
             currentTab === 'members'
               ? 'text-sky-700 font-bold'
-              : 'text-slate-400 hover:text-slate-600'
+              : 'text-slate-500 hover:text-slate-600'
           }`}
           aria-label="Members"
+          aria-current={currentTab === 'members' ? 'page' : undefined}
         >
           <Users2 className={`w-5 h-5 ${currentTab === 'members' ? 'stroke-[2.5]' : ''}`} />
           <span className="text-[11px] mt-1 font-semibold">Members</span>

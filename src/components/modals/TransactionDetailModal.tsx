@@ -1,8 +1,10 @@
 import React, { useState } from 'react'
+import { useDialog } from '../common/useDialog'
 import { useSplitto } from '../../context/SplittoContext'
 import { formatLKR } from '../../lib/money'
 import { Avatar } from '../common/Avatar'
 import { Badge } from '../common/Badge'
+import { formatDisplayDate } from '../../lib/format'
 import type { Expense, Payment } from '../../types'
 import {
   X,
@@ -34,6 +36,8 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
   const { members, deleteExpense, deletePayment } = useSplitto()
   const [confirmDelete, setConfirmDelete] = useState(false)
 
+  const dialogRef = useDialog(isOpen && !!item, onClose)
+
   if (!isOpen || !item) return null
 
   const isExp = item.type === 'expense'
@@ -57,7 +61,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-modal-in">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={item?.type === 'expense' ? 'Expense details' : 'Payment details'} className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-modal-in">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center gap-2">
@@ -75,7 +79,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-600 hover:bg-slate-100 transition"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -92,9 +96,9 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
             <p className="text-sm font-bold text-slate-700">
               {isExp ? exp?.description : `${payer?.name} paid ${recipient?.name}`}
             </p>
-            <div className="flex items-center justify-center gap-2 pt-1 text-xs text-slate-400">
+            <div className="flex items-center justify-center gap-2 pt-1 text-xs text-slate-500">
               <Calendar className="w-3.5 h-3.5" />
-              <span>{item.data.date}</span>
+              <span>{formatDisplayDate(item.data.date)}</span>
               {isExp && exp?.category && (
                 <>
                   <span>•</span>
@@ -131,7 +135,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
 
                 {exp.note && (
                   <div className="pt-2 border-t border-slate-200">
-                    <span className="text-[11px] text-slate-400 block mb-0.5">Note:</span>
+                    <span className="text-[11px] text-slate-500 block mb-0.5">Note:</span>
                     <p className="text-slate-700 italic">"{exp.note}"</p>
                   </div>
                 )}
@@ -156,7 +160,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
 
                 {pay?.note && (
                   <div className="pt-2 border-t border-slate-200">
-                    <span className="text-[11px] text-slate-400 block mb-0.5">Note:</span>
+                    <span className="text-[11px] text-slate-500 block mb-0.5">Note:</span>
                     <p className="text-slate-700 italic">"{pay.note}"</p>
                   </div>
                 )}

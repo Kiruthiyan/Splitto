@@ -30,7 +30,7 @@ export const FirstUseOnboarding: React.FC = () => {
 
     // Check duplicate
     if (trimmed.toLowerCase() === myName.trim().toLowerCase()) {
-      setErrorMsg(`"${trimmed}" is your name. Please use a friend's name or add a distinguishing label.`)
+      setErrorMsg(`"${trimmed}" is your name. Please use another member's name or add a distinguishing label.`)
       return
     }
     if (friendsList.some((f) => f.toLowerCase() === trimmed.toLowerCase())) {
@@ -68,7 +68,7 @@ export const FirstUseOnboarding: React.FC = () => {
         </div>
 
         {/* Step Indicator */}
-        <div className="flex items-center gap-2 mb-6">
+        <div className="flex items-center gap-2 mb-6" role="img" aria-label={`Step ${step} of 2`}>
           <div
             className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition ${
               step === 1 ? 'bg-sky-600 text-white shadow-xs' : 'bg-sky-100 text-sky-800'
@@ -79,7 +79,7 @@ export const FirstUseOnboarding: React.FC = () => {
           <div className="h-0.5 flex-1 bg-sky-100" />
           <div
             className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition ${
-              step === 2 ? 'bg-sky-600 text-white shadow-xs' : 'bg-slate-100 text-slate-400'
+              step === 2 ? 'bg-sky-600 text-white shadow-xs' : 'bg-slate-100 text-slate-500'
             }`}
           >
             2
@@ -87,7 +87,7 @@ export const FirstUseOnboarding: React.FC = () => {
         </div>
 
         {errorMsg && (
-          <div className="mb-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5">
+          <div role="alert" className="mb-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
             <span className="font-semibold leading-relaxed">{errorMsg}</span>
           </div>
@@ -111,20 +111,20 @@ export const FirstUseOnboarding: React.FC = () => {
 
             <form onSubmit={handleStep1Submit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                <label htmlFor="onboarding-1" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Your Display Name <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <input
+                  <input id="onboarding-1"
                     type="text"
                     required
-                    placeholder="e.g. Kirusigan, Alex, Priya"
+                    placeholder="e.g. Alex, Priya"
                     value={myName}
                     onChange={(e) => setMyName(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 text-base text-slate-900 transition focus-ring font-medium"
                     autoFocus
                   />
-                  <User className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <User className="w-5 h-5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
 
@@ -139,19 +139,19 @@ export const FirstUseOnboarding: React.FC = () => {
           </div>
         )}
 
-        {/* STEP 2: Add Initial Friends */}
+        {/* STEP 2: Add Initial Members */}
         {step === 2 && (
           <div className="space-y-5">
             <div>
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-50 text-sky-800 text-xs font-bold border border-sky-200/80 mb-3">
                 <Users className="w-3.5 h-3.5 text-sky-600" />
-                Add Your Friends
+                Add Members
               </div>
               <h1 className="text-2xl font-extrabold text-[#0F172A] tracking-tight">
                 Who do you split expenses with?
               </h1>
               <p className="text-xs text-[#475569] mt-1.5 leading-relaxed">
-                Add friends by name. You can also add or remove people at any time later.
+                Add the people you split expenses with. You can add more members later.
               </p>
             </div>
 
@@ -159,7 +159,8 @@ export const FirstUseOnboarding: React.FC = () => {
             <form onSubmit={handleAddFriend} className="flex gap-2">
               <input
                 type="text"
-                placeholder="Friend's name (e.g. Niro, Arun)"
+                aria-label="Member name"
+                placeholder="Member name (e.g. Niro, Arun)"
                 value={friendNameInput}
                 onChange={(e) => setFriendNameInput(e.target.value)}
                 className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 text-base text-slate-900 transition focus-ring"
@@ -182,7 +183,7 @@ export const FirstUseOnboarding: React.FC = () => {
                   <Check className="w-4 h-4 text-sky-600" />
                   {myName} (You)
                 </span>
-                <span className="text-[10px] font-bold text-sky-700 uppercase bg-white px-2 py-0.5 rounded border border-sky-200">Operator</span>
+                <span className="text-[11px] font-bold text-sky-700 uppercase bg-white px-2 py-0.5 rounded border border-sky-200">You</span>
               </div>
 
               {friendsList.map((friend, idx) => (
@@ -194,7 +195,8 @@ export const FirstUseOnboarding: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleRemoveFriend(idx)}
-                    className="text-slate-400 hover:text-rose-600 text-xs font-bold px-2 py-1"
+                    aria-label={`Remove ${friend}`}
+                    className="text-slate-500 hover:text-rose-600 text-xs font-bold px-2 py-1"
                   >
                     Remove
                   </button>
@@ -202,8 +204,8 @@ export const FirstUseOnboarding: React.FC = () => {
               ))}
 
               {friendsList.length === 0 && (
-                <p className="text-xs text-slate-400 italic text-center py-2">
-                  Add at least one friend to start splitting shared expenses.
+                <p className="text-xs text-slate-500 italic text-center py-2">
+                  Add at least one member to start splitting shared expenses.
                 </p>
               )}
             </div>

@@ -192,70 +192,156 @@ export function calculateTotalExpenses(expenses: Expense[]): number {
   return expenses.reduce((sum, e) => sum + e.amount, 0)
 }
 
+export interface PairwiseDebt {
+  fromMemberId: string
+  toMemberId: string
+  amount: number // cents, always > 0: `from` owes `to`
+}
+
 /**
- * Generates settlement suggestions matching debtors with creditors.
- * Deterministic matching: matches debtors (most negative first) to creditors (most positive first).
+ * Direct person-to-person debts derived from expenses and payments.
+ * - each expense: every participant (other than payer) owes the payer their share
+ * - each payment: reduces what `from` owes `to` (or increases what `to` owes `from`)
+ * Opposite directions between the same pair are netted. No third-party routing.
  */
-export function generateSettlementSuggestions(
-  balances: MemberBalance[]
-): SettlementSuggestion[] {
-  const debtors: { id: string; name: string; amountOwed: number }[] = []
-  const creditors: { id: string; name: string; amountReceivable: number }[] = []
-
-  balances.forEach((b) => {
-    if (b.netBalance < 0) {
-      debtors.push({
-        id: b.memberId,
-        name: b.name,
-        amountOwed: Math.abs(b.netBalance),
-      })
-    } else if (b.netBalance > 0) {
-      creditors.push({
-        id: b.memberId,
-        name: b.name,
-        amountReceivable: b.netBalance,
-      })
+export function calculatePairwiseDebts(expenses: Expense[], payments: Payment[]): PairwiseDebt[] {
+  const net = new Map<string, number>() // key "a|b" with a<b; value >0 means a owes b
+  const add = (debtor: string, creditor: string, amount: number) => {
+    if (debtor === creditor || amount === 0) return
+    if (debtor < creditor) {
+      const k = `${debtor}|${creditor}`
+      net.set(k, (net.get(k) || 0) + amount)
+    } else {
+      const k = `${creditor}|${debtor}`
+      net.set(k, (net.get(k) || 0) - amount)
     }
-  })
-
-  // Sort deterministically: highest debts & receivables first
-  debtors.sort((a, b) => b.amountOwed - a.amountOwed || a.id.localeCompare(b.id))
-  creditors.sort((a, b) => b.amountReceivable - a.amountReceivable || a.id.localeCompare(b.id))
-
-  const suggestions: SettlementSuggestion[] = []
-  let dIdx = 0
-  let cIdx = 0
-
-  while (dIdx < debtors.length && cIdx < creditors.length) {
-    const debtor = debtors[dIdx]
-    const creditor = creditors[cIdx]
-
-    if (debtor.amountOwed === 0) {
-      dIdx++
-      continue
-    }
-    if (creditor.amountReceivable === 0) {
-      cIdx++
-      continue
-    }
-
-    const settleAmount = Math.min(debtor.amountOwed, creditor.amountReceivable)
-    if (settleAmount > 0) {
-      suggestions.push({
-        fromMemberId: debtor.id,
-        fromMemberName: debtor.name,
-        toMemberId: creditor.id,
-        toMemberName: creditor.name,
-        amount: settleAmount,
-      })
-
-      debtor.amountOwed -= settleAmount
-      creditor.amountReceivable -= settleAmount
-    }
-
-    if (debtor.amountOwed === 0) dIdx++
-    if (creditor.amountReceivable === 0) cIdx++
   }
 
-  return suggestions
+  expenses.forEach((e) => e.shares.forEach((s) => add(s.memberId, e.paidById, s.amount)))
+  // payment from X to Y: Y now owes X that amount (cancels X's debt to Y)
+  payments.forEach((p) => add(p.toMemberId, p.fromMemberId, p.amount))
+
+  const out: PairwiseDebt[] = []
+  Array.from(net.keys())
+    .sort()
+    .forEach((k) => {
+      const v = net.get(k)!
+      if (v === 0) return
+      const [a, b] = k.split('|')
+      out.push(
+        v > 0
+          ? { fromMemberId: a, toMemberId: b, amount: v }
+          : { fromMemberId: b, toMemberId: a, amount: -v }
+      )
+    })
+  return out
+}
+
+/** Amount `from` currently owes `to` directly (0 if none or reversed). */
+export function outstandingDebt(
+  expenses: Expense[],
+  payments: Payment[],
+  fromId: string,
+  toId: string
+): number {
+  const d = calculatePairwiseDebts(expenses, payments).find(
+    (x) => x.fromMemberId === fromId && x.toMemberId === toId
+  )
+  return d ? d.amount : 0
+}
+
+/**
+ * Settlement suggestions = outstanding direct debts (largest first).
+ * Never routes through unrelated members.
+ */
+export function generateSettlementSuggestions(
+  members: Member[],
+  expenses: Expense[],
+  payments: Payment[]
+): SettlementSuggestion[] {
+  const name = new Map(members.map((m) => [m.id, m.name]))
+  return calculatePairwiseDebts(expenses, payments)
+    .sort((a, b) => b.amount - a.amount || a.fromMemberId.localeCompare(b.fromMemberId))
+    .map((d) => ({
+      fromMemberId: d.fromMemberId,
+      fromMemberName: name.get(d.fromMemberId) ?? '',
+      toMemberId: d.toMemberId,
+      toMemberName: name.get(d.toMemberId) ?? '',
+      amount: d.amount,
+    }))
+}
+
+export function isValidDateString(d: unknown): boolean {
+  if (typeof d !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return false
+  const t = new Date(d + 'T00:00:00Z')
+  return !Number.isNaN(t.getTime()) && t.toISOString().slice(0, 10) === d
+}
+
+/** Returns an error string, or null if expense is financially valid. */
+export function validateExpenseInput(
+  e: Pick<Expense, 'amount' | 'paidById' | 'date' | 'shares'>,
+  members: Pick<Member, 'id'>[]
+): string | null {
+  const ids = new Set(members.map((m) => m.id))
+  if (!Number.isSafeInteger(e.amount) || e.amount <= 0) return 'Amount must be greater than zero.'
+  if (!ids.has(e.paidById)) return 'Invalid payer.'
+  if (!isValidDateString(e.date)) return 'Invalid date.'
+  if (!Array.isArray(e.shares) || e.shares.length === 0) return 'Select at least one participant.'
+  const seen = new Set<string>()
+  let sum = 0
+  for (const s of e.shares) {
+    if (!ids.has(s.memberId)) return 'Invalid participant.'
+    if (seen.has(s.memberId)) return 'Duplicate participant.'
+    seen.add(s.memberId)
+    if (!Number.isSafeInteger(s.amount) || s.amount < 0) return 'Invalid share amount.'
+    sum += s.amount
+  }
+  if (sum !== e.amount) return 'Shares must add up exactly to the expense amount.'
+  return null
+}
+
+/**
+ * Returns an error string, or null if payment is valid.
+ * `expenses`/`payments` must already exclude the payment being edited (if any).
+ */
+export function validatePaymentInput(
+  p: Pick<Payment, 'fromMemberId' | 'toMemberId' | 'amount' | 'date'>,
+  members: Pick<Member, 'id'>[],
+  expenses: Expense[],
+  payments: Payment[]
+): string | null {
+  const ids = new Set(members.map((m) => m.id))
+  if (!ids.has(p.fromMemberId)) return 'Invalid payer.'
+  if (!ids.has(p.toMemberId)) return 'Invalid recipient.'
+  if (p.fromMemberId === p.toMemberId) return 'Payer and recipient cannot be the same member.'
+  if (!Number.isSafeInteger(p.amount) || p.amount <= 0) return 'Payment amount must be greater than zero.'
+  if (!isValidDateString(p.date)) return 'Invalid date.'
+  const owed = outstandingDebt(expenses, payments, p.fromMemberId, p.toMemberId)
+  if (p.amount > owed) {
+    return owed === 0
+      ? 'Nothing is owed in that direction.'
+      : `Payment exceeds outstanding debt of ${formatLKR(owed)}.`
+  }
+  return null
+}
+
+/**
+ * Legacy-data check: replays payments oldest-first and returns those that exceeded
+ * the direct debt outstanding at that point. Read-only; never alters data.
+ */
+export function findInvalidPayments(
+  members: Pick<Member, 'id'>[],
+  expenses: Expense[],
+  payments: Payment[]
+): Payment[] {
+  const ordered = [...payments].sort(
+    (a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt)
+  )
+  const applied: Payment[] = []
+  const invalid: Payment[] = []
+  for (const p of ordered) {
+    if (validatePaymentInput(p, members, expenses, applied)) invalid.push(p)
+    applied.push(p)
+  }
+  return invalid
 }

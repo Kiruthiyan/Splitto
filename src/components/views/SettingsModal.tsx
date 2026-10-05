@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react'
+import { useDialog } from '../common/useDialog'
 import { useSplitto } from '../../context/SplittoContext'
 import { validateBackupData } from '../../lib/storage'
 import {
@@ -49,6 +50,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [confirmReset, setConfirmReset] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const dialogRef = useDialog(isOpen, onClose)
 
   if (!isOpen) return null
 
@@ -111,16 +114,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-modal-in max-h-[92vh] flex flex-col">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Settings and storage" className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-modal-in max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60 shrink-0">
           <div>
             <h2 className="text-base font-extrabold text-slate-900">Settings & Storage</h2>
-            <p className="text-[11px] text-slate-400">Manage your profile and local records</p>
+            <p className="text-[11px] text-slate-500">Manage your profile and local records</p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition min-w-[40px] min-h-[40px] flex items-center justify-center"
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-600 hover:bg-slate-100 transition min-w-[40px] min-h-[40px] flex items-center justify-center"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -145,7 +148,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
           {/* 1. Storage Explanation Callout */}
           <div className="p-4 rounded-2xl bg-sky-50 border border-sky-200 space-y-1.5">
-            <div className="flex items-center gap-1.5 font-bold text-sky-950 uppercase tracking-wider text-[10px]">
+            <div className="flex items-center gap-1.5 font-bold text-sky-950 uppercase tracking-wider text-[11px]">
               <HardDrive className="w-3.5 h-3.5 text-sky-600" />
               <span>Browser & Origin Storage Information</span>
             </div>
@@ -156,19 +159,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
           {/* 2. Edit Operator Name */}
           <form onSubmit={handleUpdateName} className="space-y-2">
-            <label className="block font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+            <label htmlFor="settings-1" className="block font-bold text-slate-700 uppercase tracking-wider text-[11px]">
               Your Display Name ("Me")
             </label>
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <input
+                <input id="settings-1"
                   type="text"
                   required
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 focus:border-sky-500 text-sm text-slate-900 transition focus-ring font-medium"
                 />
-                <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <User className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
               <button
                 type="submit"
@@ -203,7 +206,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 </div>
                 <div>
                   <span className="font-bold text-slate-900 block">Export JSON Backup</span>
-                  <span className="text-[10px] text-slate-400">Save records to a file</span>
+                  <span className="text-[11px] text-slate-500">Save records to a file</span>
                 </div>
               </button>
 
@@ -218,7 +221,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 </div>
                 <div>
                   <span className="font-bold text-slate-900 block">Import JSON Backup</span>
-                  <span className="text-[10px] text-slate-400">Restore from a file</span>
+                  <span className="text-[11px] text-slate-500">Restore from a file</span>
                 </div>
               </button>
             </div>
@@ -243,7 +246,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               <div className="p-2.5 bg-white rounded-xl border border-blue-100 space-y-1 text-slate-700 text-[11px]">
                 <p>• <strong>{pendingCounts.members}</strong> members</p>
                 <p>• <strong>{pendingCounts.expenses}</strong> expenses</p>
-                <p>• <strong>{pendingCounts.payments}</strong> settlement payments</p>
+                <p>• <strong>{pendingCounts.payments}</strong> payments</p>
               </div>
 
               <div className="text-blue-900 text-[11px] leading-relaxed">

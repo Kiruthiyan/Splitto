@@ -1,8 +1,10 @@
 import React, { useState } from 'react'
+import { useDialog } from '../common/useDialog'
 import { useSplitto } from '../../context/SplittoContext'
 import { formatLKR } from '../../lib/money'
 import { Avatar } from '../common/Avatar'
 import { Badge } from '../common/Badge'
+import { formatDisplayDate } from '../../lib/format'
 import type { Member } from '../../types'
 import {
   X,
@@ -37,6 +39,8 @@ export const MemberDetailModal: React.FC<MemberDetailModalProps> = ({
 
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  const dialogRef = useDialog(isOpen && !!member, onClose)
 
   if (!isOpen || !member) return null
 
@@ -76,7 +80,7 @@ export const MemberDetailModal: React.FC<MemberDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-modal-in">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={member ? `${member.name} details` : 'Member details'} className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-modal-in">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center gap-2.5">
@@ -87,15 +91,15 @@ export const MemberDetailModal: React.FC<MemberDetailModalProps> = ({
                 {member.isMe && <Badge variant="navy" size="sm">You</Badge>}
                 {!member.isActive && <Badge variant="gray" size="sm">Inactive</Badge>}
               </div>
-              <p className="text-[11px] text-slate-400">
-                Added {new Date(member.createdAt).toLocaleDateString()}
+              <p className="text-[11px] text-slate-500">
+                Added {formatDisplayDate(member.createdAt)}
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-600 hover:bg-slate-100 transition"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -121,7 +125,7 @@ export const MemberDetailModal: React.FC<MemberDetailModalProps> = ({
                 : 'bg-slate-50 border-slate-200 text-slate-900'
             }`}
           >
-            <span className="text-[10px] font-bold uppercase tracking-wider opacity-80 block">
+            <span className="text-[11px] font-bold uppercase tracking-wider opacity-80 block">
               Current Net Balance
             </span>
             <div
@@ -149,7 +153,7 @@ export const MemberDetailModal: React.FC<MemberDetailModalProps> = ({
             <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2 text-xs">
               <div className="flex items-center justify-between text-slate-600">
                 <span className="flex items-center gap-1.5">
-                  <Receipt className="w-3.5 h-3.5 text-slate-400" />
+                  <Receipt className="w-3.5 h-3.5 text-slate-500" />
                   Expenses Paid Out:
                 </span>
                 <span className="font-bold text-slate-900">
@@ -159,7 +163,7 @@ export const MemberDetailModal: React.FC<MemberDetailModalProps> = ({
 
               <div className="flex items-center justify-between text-slate-600">
                 <span className="flex items-center gap-1.5">
-                  <Receipt className="w-3.5 h-3.5 text-slate-400" />
+                  <Receipt className="w-3.5 h-3.5 text-slate-500" />
                   Assigned Expense Share:
                 </span>
                 <span className="font-bold text-slate-900">
@@ -169,8 +173,8 @@ export const MemberDetailModal: React.FC<MemberDetailModalProps> = ({
 
               <div className="flex items-center justify-between text-slate-600">
                 <span className="flex items-center gap-1.5">
-                  <CreditCard className="w-3.5 h-3.5 text-slate-400" />
-                  Settlement Payments Sent:
+                  <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                  Payments Sent:
                 </span>
                 <span className="font-bold text-slate-900">
                   {formatLKR(memberBalance?.paymentsSent || 0)}
@@ -179,8 +183,8 @@ export const MemberDetailModal: React.FC<MemberDetailModalProps> = ({
 
               <div className="flex items-center justify-between text-slate-600">
                 <span className="flex items-center gap-1.5">
-                  <CreditCard className="w-3.5 h-3.5 text-slate-400" />
-                  Settlement Payments Received:
+                  <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                  Payments Received:
                 </span>
                 <span className="font-bold text-slate-900">
                   {formatLKR(memberBalance?.paymentsReceived || 0)}
@@ -192,7 +196,7 @@ export const MemberDetailModal: React.FC<MemberDetailModalProps> = ({
           {/* History Reference Note */}
           <div className="text-[11px] text-slate-500 bg-slate-100/70 p-3 rounded-xl leading-relaxed">
             Referenced in <strong>{expenseCount}</strong> expenses and{' '}
-            <strong>{paymentCount}</strong> settlement payments.
+            <strong>{paymentCount}</strong> payments.
           </div>
 
           {/* Action buttons (Deactivate / Reactivate / Delete) */}

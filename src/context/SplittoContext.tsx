@@ -19,6 +19,8 @@ import {
   calculateMemberBalances,
   calculateTotalExpenses,
   generateSettlementSuggestions,
+  validateExpenseInput,
+  validatePaymentInput,
 } from '../lib/money'
 
 interface SplittoContextType {
@@ -116,13 +118,13 @@ export const SplittoProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [expenses])
 
   const suggestions = useMemo(() => {
-    return generateSettlementSuggestions(balances)
-  }, [balances])
+    return generateSettlementSuggestions(members, expenses, payments)
+  }, [members, expenses, payments])
 
   const everyoneSettled = useMemo(() => {
     if (members.length === 0) return true
-    return balances.every((b) => b.netBalance === 0)
-  }, [members, balances])
+    return suggestions.length === 0 && balances.every((b) => b.netBalance === 0)
+  }, [members, balances, suggestions])
 
   // 1. First-use Setup
   const initializeOperator = (name: string, initialFriends?: string[]) => {
@@ -298,6 +300,8 @@ export const SplittoProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // 6. Create Expense
   const createExpense = (expenseInput: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const err = validateExpenseInput(expenseInput, members)
+    if (err) return { success: false, error: err }
     const now = new Date().toISOString()
     const newExpense: Expense = {
       ...expenseInput,
@@ -316,6 +320,8 @@ export const SplittoProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // 7. Update Expense
   const updateExpense = (id: string, expenseInput: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const err = validateExpenseInput(expenseInput, members)
+    if (err) return { success: false, error: err }
     const now = new Date().toISOString()
     const updatedExpenses = expenses.map((e) => {
       if (e.id !== id) return e
@@ -346,6 +352,8 @@ export const SplittoProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // 9. Record Payment
   const recordPayment = (paymentInput: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const err = validatePaymentInput(paymentInput, members, expenses, payments)
+    if (err) return { success: false, error: err }
     const now = new Date().toISOString()
     const newPayment: Payment = {
       ...paymentInput,
@@ -364,6 +372,13 @@ export const SplittoProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // 10. Update Payment
   const updatePayment = (id: string, paymentInput: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const err = validatePaymentInput(
+      paymentInput,
+      members,
+      expenses,
+      payments.filter((p) => p.id !== id)
+    )
+    if (err) return { success: false, error: err }
     const now = new Date().toISOString()
     const updatedPayments = payments.map((p) => {
       if (p.id !== id) return p

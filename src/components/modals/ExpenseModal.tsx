@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { useDialog } from '../common/useDialog'
 import { useSplitto } from '../../context/SplittoContext'
 import {
   formatLKR,
@@ -20,7 +21,6 @@ import {
   Calendar,
   AlertCircle,
   Trash2,
-  Check,
   Coins,
   Sparkles,
   ArrowRight,
@@ -177,6 +177,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   const customRemainingCents = totalAmountInCents - customAllocatedSum
 
+  const dialogRef = useDialog(isOpen, onClose)
+
   if (!isOpen) return null
 
   // Participant selection toggle
@@ -326,18 +328,18 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-6 animate-modal-in max-h-[92vh] flex flex-col">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={expenseToEdit ? 'Edit expense' : 'Add expense'} className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-6 animate-modal-in max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/60 shrink-0">
           <div>
             <h2 className="text-base font-extrabold text-slate-900">
               {expenseToEdit ? 'Edit Expense' : 'Add Expense'}
             </h2>
-            <p className="text-[11px] text-slate-400">Record a shared expense in LKR</p>
+            <p className="text-[11px] text-slate-500">Record a shared expense in LKR</p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition min-w-[40px] min-h-[40px] flex items-center justify-center"
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-600 hover:bg-slate-100 transition min-w-[40px] min-h-[40px] flex items-center justify-center"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -347,7 +349,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto flex-1">
           {formError && (
-            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5">
+            <div role="alert" className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <span className="font-semibold leading-relaxed">{formError}</span>
             </div>
@@ -355,10 +357,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
           {/* Description */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+            <label htmlFor="expense-1" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
               Description <span className="text-rose-500">*</span>
             </label>
-            <input
+            <input id="expense-1"
               type="text"
               required
               placeholder="e.g. Breakfast, Dinner, Fuel, CEB Bill"
@@ -371,14 +373,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           {/* Amount & Date */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+              <label htmlFor="expense-2" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                 Amount (Rs.) <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-500">
                   Rs.
                 </span>
-                <input
+                <input id="expense-2"
                   type="text"
                   required
                   placeholder="0.00"
@@ -391,28 +393,28 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+              <label htmlFor="expense-3" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                 Date <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <input
+                <input id="expense-3"
                   type="date"
                   required
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 text-base text-slate-900 transition focus-ring"
                 />
-                <Calendar className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Calendar className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
           </div>
 
           {/* Category */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+            <div id="expense-category-label" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
               Category
-            </label>
-            <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+            </div>
+            <div role="group" aria-labelledby="expense-category-label" className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
               {CATEGORIES.map((cat) => {
                 const Icon = cat.icon
                 const isSelected = category === cat.id
@@ -420,6 +422,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   <button
                     key={cat.id}
                     type="button"
+                    aria-pressed={isSelected}
                     onClick={() => setCategory(cat.id)}
                     className={`p-2 rounded-xl border text-center transition flex flex-col items-center justify-center min-h-[44px] ${
                       isSelected
@@ -427,8 +430,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
-                    <Icon className={`w-4 h-4 mb-0.5 ${isSelected ? 'text-sky-600' : 'text-slate-400'}`} />
-                    <span className="text-[10px] truncate max-w-full">{cat.label}</span>
+                    <Icon className={`w-4 h-4 mb-0.5 ${isSelected ? 'text-sky-600' : 'text-slate-500'}`} />
+                    <span className="text-[11px] truncate max-w-full">{cat.label}</span>
                   </button>
                 )
               })}
@@ -437,10 +440,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
           {/* Paid By (Active members) */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+            <label htmlFor="expense-4" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
               Paid By <span className="text-rose-500">*</span>
             </label>
-            <select
+            <select id="expense-4"
               value={paidById}
               onChange={(e) => setPaidById(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 text-base text-slate-900 bg-white transition focus-ring font-medium"
@@ -456,14 +459,15 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           {/* Split Method Tabs */}
           <div className="pt-2 border-t border-slate-100">
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+              <div className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                 Split Method
-              </label>
+              </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl mb-3">
+            <div role="group" aria-label="Split method" className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl mb-3">
               <button
                 type="button"
+                aria-pressed={splitMethod === 'equal'}
                 onClick={() => setSplitMethod('equal')}
                 className={`py-2 px-1 text-xs font-bold rounded-lg transition min-h-[40px] ${
                   splitMethod === 'equal'
@@ -475,6 +479,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               </button>
               <button
                 type="button"
+                aria-pressed={splitMethod === 'custom'}
                 onClick={() => setSplitMethod('custom')}
                 className={`py-2 px-1 text-xs font-bold rounded-lg transition min-h-[40px] ${
                   splitMethod === 'custom'
@@ -486,6 +491,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               </button>
               <button
                 type="button"
+                aria-pressed={splitMethod === 'exact_single'}
                 onClick={() => setSplitMethod('exact_single')}
                 className={`py-2 px-1 text-xs font-bold rounded-lg transition min-h-[40px] ${
                   splitMethod === 'exact_single'
@@ -502,8 +508,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               <div className="space-y-2 bg-slate-50/70 p-3.5 rounded-2xl border border-slate-200">
                 <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
                   <span>Select participants in split:</span>
-                  <span className="font-bold text-slate-700">
-                    {selectedParticipants.length} selected
+                  <span className="font-bold text-slate-700" aria-live="polite">
+                    {selectedParticipants.length} {selectedParticipants.length === 1 ? 'person' : 'people'} selected
                   </span>
                 </div>
 
@@ -513,9 +519,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     const share = computedShares[m.id] || 0
 
                     return (
-                      <div
+                      <label
                         key={m.id}
-                        onClick={() => toggleParticipant(m.id)}
                         className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition min-h-[44px] ${
                           isSelected
                             ? 'bg-white border-sky-300 shadow-2xs'
@@ -523,15 +528,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                         }`}
                       >
                         <div className="flex items-center gap-2.5">
-                          <div
-                            className={`w-4 h-4 rounded border flex items-center justify-center transition ${
-                              isSelected
-                                ? 'bg-sky-600 border-sky-600 text-white'
-                                : 'border-slate-300'
-                            }`}
-                          >
-                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                          </div>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleParticipant(m.id)}
+                            className="w-4 h-4 text-sky-600 rounded border-slate-300 focus:ring-sky-500"
+                          />
                           <Avatar name={m.name} isMe={m.isMe} size="sm" />
                           <span className="text-xs font-bold text-slate-800">
                             {m.name} {m.isMe ? '(You)' : ''}
@@ -543,7 +545,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                             {formatLKR(share)}
                           </span>
                         )}
-                      </div>
+                      </label>
                     )
                   })}
                 </div>
@@ -556,13 +558,16 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Enter each participant's share:</span>
                   <span
+                    role="status"
                     className={`font-bold ${
-                      customRemainingCents === 0
-                        ? 'text-sky-700'
-                        : 'text-rose-600 font-semibold'
+                      customRemainingCents === 0 ? 'text-emerald-700' : 'text-rose-700'
                     }`}
                   >
-                    Remaining: {formatLKR(customRemainingCents)}
+                    {customRemainingCents === 0
+                      ? 'Balanced: shares match the total'
+                      : customRemainingCents > 0
+                      ? `Remaining to assign: ${formatLKR(customRemainingCents)}`
+                      : `Over by ${formatLKR(-customRemainingCents)}`}
                   </span>
                 </div>
 
@@ -592,11 +597,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                         {isSelected && (
                           <div className="flex items-center gap-2">
                             <div className="relative w-28 shrink-0">
-                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-500 font-bold">
                                 Rs.
                               </span>
                               <input
                                 type="text"
+                                aria-label={`${m.name} share in rupees`}
                                 placeholder="0.00"
                                 inputMode="decimal"
                                 value={customShares[m.id] || ''}
@@ -609,7 +615,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleAssignRemainder(m.id)}
-                                className="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-800 text-[10px] font-bold rounded border border-sky-200 shrink-0"
+                                className="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-800 text-[11px] font-bold rounded border border-sky-200 shrink-0"
                                 title="Assign all remaining unallocated amount to this member"
                               >
                                 + Remainder
@@ -627,10 +633,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             {/* Split Method 3: ONE PERSON */}
             {splitMethod === 'exact_single' && (
               <div className="space-y-2 bg-slate-50/70 p-3.5 rounded-2xl border border-slate-200">
-                <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                <label htmlFor="expense-5" className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                   Assign entire cost to:
                 </label>
-                <select
+                <select id="expense-5"
                   value={singleTargetId}
                   onChange={(e) => setSingleTargetId(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 text-base text-slate-900 bg-white transition focus-ring font-medium"
@@ -641,7 +647,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     </option>
                   ))}
                 </select>
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-[11px] text-slate-500 mt-1">
                   The payer paid, but this single person is 100% responsible for the cost.
                 </p>
               </div>
@@ -650,10 +656,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
           {/* Optional Note */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+            <label htmlFor="expense-6" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
               Note (Optional)
             </label>
-            <input
+            <input id="expense-6"
               type="text"
               placeholder="e.g. Receipt #1234, special remarks"
               value={note}

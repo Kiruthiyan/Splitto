@@ -1,6 +1,7 @@
 import React from 'react'
 import { useSplitto } from '../../context/SplittoContext'
-import { formatLKR } from '../../lib/money'
+import { formatLKR, findInvalidPayments } from '../../lib/money'
+import { formatDisplayDate } from '../../lib/format'
 import { Avatar } from '../common/Avatar'
 import { Badge } from '../common/Badge'
 import type { Expense, Payment } from '../../types'
@@ -27,6 +28,8 @@ interface HomeViewProps {
   onSelectTransaction: (item: { type: 'expense' | 'payment'; data: Expense | Payment }) => void
 }
 
+const LEGACY_WARNING_KEY = 'splitto_legacy_payment_warning_dismissed'
+
 export const HomeView: React.FC<HomeViewProps> = ({
   onOpenAddExpense,
   onOpenRecordPayment,
@@ -47,6 +50,29 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   const myNet = myBalance?.netBalance || 0
 
+  const displayName = (id: string, fallback: string) =>
+    members.find((m) => m.id === id)?.isMe ? 'You' : fallback
+
+  const invalidPaymentCount = React.useMemo(
+    () => findInvalidPayments(members, expenses, payments).length,
+    [members, expenses, payments]
+  )
+  const [warningDismissed, setWarningDismissed] = React.useState(() => {
+    try {
+      return localStorage.getItem(LEGACY_WARNING_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+  const dismissWarning = () => {
+    setWarningDismissed(true)
+    try {
+      localStorage.setItem(LEGACY_WARNING_KEY, '1')
+    } catch {
+      // ignore: warning simply reappears next visit
+    }
+  }
+
   // Combine recent transactions (expenses and payments) sorted newest first
   const recentTransactions = React.useMemo(() => {
     const list: Array<{ type: 'expense' | 'payment'; date: string; data: Expense | Payment }> = []
@@ -66,17 +92,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <div className="flex items-start gap-2.5">
             <Users2 className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <p className="text-xs font-bold">Add at least one friend to split expenses</p>
+              <p className="text-xs font-bold">Add a member to split expenses</p>
               <p className="text-[11px] text-amber-800 mt-0.5">
-                You currently have {activeMembers.length} active member. Add your friends to start recording shared costs.
+                You need at least two active members to record shared costs. Add someone to get started.
               </p>
             </div>
           </div>
           <button
             onClick={onNavigateToMembers}
-            className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shrink-0 transition"
+            className="px-3 py-1.5 rounded-xl bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold shrink-0 transition min-h-[44px] focus-ring"
           >
-            Add Friend
+            Add Member
           </button>
         </div>
       )}
@@ -95,7 +121,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <span>Your Net Position</span>
           <Scale
             className={`w-4 h-4 ${
-              myNet > 0 ? 'text-emerald-600' : myNet < 0 ? 'text-rose-600' : 'text-slate-400'
+              myNet > 0 ? 'text-emerald-600' : myNet < 0 ? 'text-rose-600' : 'text-slate-500'
             }`}
           />
         </div>
@@ -120,6 +146,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 <TrendingDown className="w-3.5 h-3.5" />
                 You owe {formatLKR(Math.abs(myNet))}
               </span>
+            ) : expenses.length === 0 && payments.length === 0 ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                No expenses yet
+              </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
                 <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" />
@@ -138,10 +168,21 @@ export const HomeView: React.FC<HomeViewProps> = ({
         )}
       </div>
 
+      {invalidPaymentCount > 0 && !warningDismissed && (
+        <div className="p-3 rounded-2xl border border-amber-300 bg-amber-50 text-xs text-amber-900 flex items-start justify-between gap-3">
+          <span>
+            {invalidPaymentCount} saved {invalidPaymentCount === 1 ? "payment is" : "payments are"} larger than the amount owed when {invalidPaymentCount === 1 ? "it was" : "they were"} recorded. Your records have not been changed.
+          </span>
+          <button onClick={dismissWarning} className="font-bold underline shrink-0 min-h-[44px] px-2 focus-ring">
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* 3. QUICK STATS: Total Expenses, My Total Paid, My Expense Share */}
       <div className="grid grid-cols-3 gap-2.5">
         <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-2xs text-center">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
             Total Expenses
           </span>
           <span className="text-xs sm:text-sm font-extrabold text-slate-900 mt-1 block truncate">
@@ -150,7 +191,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
 
         <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-2xs text-center">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
             You Paid
           </span>
           <span className="text-xs sm:text-sm font-extrabold text-slate-900 mt-1 block truncate">
@@ -159,7 +200,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
 
         <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-2xs text-center">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
             Your Share
           </span>
           <span className="text-xs sm:text-sm font-extrabold text-slate-900 mt-1 block truncate">
@@ -189,32 +230,31 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </button>
       </div>
 
-      {/* 5. SUGGESTED SETTLEMENTS */}
+      {/* 5. OUTSTANDING DEBTS (direct, person to person) */}
       {suggestions.length > 0 && (
         <div className="p-4 rounded-2xl bg-sky-50/60 border border-sky-100 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-sky-600" />
-              Suggested Settlements
-            </h2>
-          </div>
-          <p className="text-[11px] text-slate-500 leading-relaxed">
-            These payments settle everyone’s net balance and may differ from who originally paid for each expense.
+          <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-sky-600" />
+            Who Owes Whom
+          </h2>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Outstanding amounts between two people, after any payments already recorded.
           </p>
 
-          <div className="space-y-2 pt-1">
-            {suggestions.map((s, idx) => {
-              const fromName = s.fromMemberName
-              const toName = s.toMemberName
+          <ul className="space-y-2 pt-1">
+            {suggestions.map((s) => {
+              const fromName = displayName(s.fromMemberId, s.fromMemberName)
+              const toName = displayName(s.toMemberId, s.toMemberName)
+              const fromIsMe = fromName === 'You'
 
               return (
-                <div
-                  key={idx}
+                <li
+                  key={`${s.fromMemberId}-${s.toMemberId}`}
                   className="p-3 bg-white rounded-xl border border-sky-200/60 shadow-2xs flex items-center justify-between gap-3"
                 >
                   <div className="text-xs min-w-0">
                     <p className="font-bold text-slate-900 truncate">
-                      {fromName} <span className="font-normal text-slate-500">pays</span> {toName}
+                      {fromName} <span className="font-normal text-slate-600">{fromIsMe ? 'owe' : 'owes'}</span> {toName}
                     </p>
                     <p className="text-sm font-extrabold text-emerald-700 mt-0.5">
                       {formatLKR(s.amount)}
@@ -223,14 +263,15 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
                   <button
                     onClick={() => onOpenRecordPayment(s.fromMemberId, s.toMemberId, s.amount)}
-                    className="px-3 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 text-xs font-bold border border-sky-200 transition shrink-0 min-h-[36px]"
+                    aria-label={`Record payment from ${fromName} to ${toName}`}
+                    className="px-3 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 text-xs font-bold border border-sky-200 transition shrink-0 min-h-[44px] focus-ring"
                   >
-                    Pay
+                    Record payment
                   </button>
-                </div>
+                </li>
               )
             })}
-          </div>
+          </ul>
         </div>
       )}
 
@@ -260,7 +301,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     {mb.isMe && <Badge variant="navy" size="sm">You</Badge>}
                     {!mb.isActive && <Badge variant="gray" size="sm">Inactive</Badge>}
                   </div>
-                  <p className="text-[10px] text-slate-400">
+                  <p className="text-[11px] text-slate-500">
                     Paid {formatLKR(mb.expensesPaid)}
                   </p>
                 </div>
@@ -278,7 +319,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 >
                   {formatLKR(mb.netBalance)}
                 </span>
-                <p className="text-[9px] font-semibold uppercase text-slate-400">
+                <p className="text-[11px] font-semibold uppercase text-slate-500">
                   {mb.netBalance > 0 ? 'Receivable' : mb.netBalance < 0 ? 'Owes' : 'Settled'}
                 </p>
               </div>
@@ -297,16 +338,16 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
 
         {recentTransactions.length === 0 ? (
-          <div className="py-8 text-center text-slate-400 space-y-2">
+          <div className="py-8 text-center text-slate-500 space-y-2">
             <Receipt className="w-8 h-8 text-slate-300 mx-auto" />
             <p className="text-xs font-semibold text-slate-600">No transactions recorded yet</p>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] text-slate-500">
               Tap "Add Expense" to record your first shared cost.
             </p>
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {recentTransactions.map((tx, idx) => {
+            {recentTransactions.map((tx) => {
               const isExp = tx.type === 'expense'
               const exp = isExp ? (tx.data as Expense) : null
               const pay = !isExp ? (tx.data as Payment) : null
@@ -321,9 +362,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
               return (
                 <div
-                  key={idx}
+                  key={tx.data.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => onSelectTransaction(tx)}
-                  className="py-3 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-50/80 -mx-2 px-2 rounded-xl transition"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      onSelectTransaction(tx)
+                    }
+                  }}
+                  className="focus-ring py-3 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-50/80 -mx-2 px-2 rounded-xl transition"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div
@@ -338,10 +387,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       <p className="text-xs font-bold text-slate-900 truncate">
                         {isExp ? exp?.description : `${payerName} paid ${recipientName}`}
                       </p>
-                      <p className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                        <span>{tx.date}</span>
+                      <p className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+                        <span>{formatDisplayDate(tx.date)}</span>
                         <span>•</span>
-                        <span>{isExp ? `Paid by ${payerName}` : 'Settlement'}</span>
+                        <span>{isExp ? `Paid by ${payerName}` : 'Payment'}</span>
                       </p>
                     </div>
                   </div>
@@ -350,7 +399,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     <span className="text-xs font-bold text-slate-900">
                       {formatLKR(tx.data.amount)}
                     </span>
-                    <span className="block text-[10px] text-slate-400 font-medium capitalize">
+                    <span className="block text-[11px] text-slate-500 font-medium capitalize">
                       {isExp ? exp?.category || 'Expense' : 'Payment'}
                     </span>
                   </div>

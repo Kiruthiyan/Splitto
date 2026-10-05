@@ -1,4 +1,5 @@
 import type { SplittoData } from '../types'
+import { validateExpenseInput, isValidDateString } from './money.ts'
 
 export const STORAGE_KEY = 'splitto_data'
 export const CURRENT_SCHEMA_VERSION = 1
@@ -163,6 +164,11 @@ export function validateBackupData(jsonString: string): BackupValidationResult {
         return { valid: false, error: `Expense "${e.description}" has no participant shares.` }
       }
 
+      const expErr = validateExpenseInput(e, parsed.members)
+      if (expErr) {
+        return { valid: false, error: `Expense "${e.description}": ${expErr}` }
+      }
+
       let shareTotal = 0
       const shareParticipants = new Set<string>()
 
@@ -202,6 +208,9 @@ export function validateBackupData(jsonString: string): BackupValidationResult {
       }
       if (p.fromMemberId === p.toMemberId) {
         return { valid: false, error: 'Payment from and to members cannot be identical.' }
+      }
+      if (!isValidDateString(p.date)) {
+        return { valid: false, error: 'Payment has an invalid date.' }
       }
     }
 

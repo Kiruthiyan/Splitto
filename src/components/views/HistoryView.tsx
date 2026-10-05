@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { useSplitto } from '../../context/SplittoContext'
 import { formatLKR } from '../../lib/money'
+import { formatDisplayDate } from '../../lib/format'
 import type { Expense, Payment, TransactionFilter } from '../../types'
 import { Receipt, CreditCard, Search, Calendar, Filter } from 'lucide-react'
 
@@ -79,7 +80,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onSelectTransaction })
           <h1 className="text-base font-extrabold text-slate-900 tracking-tight">
             Transaction History
           </h1>
-          <span className="text-xs text-slate-400 font-semibold">
+          <span className="text-xs text-slate-500 font-semibold">
             {filteredList.length} {filteredList.length === 1 ? 'item' : 'items'}
           </span>
         </div>
@@ -88,17 +89,19 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onSelectTransaction })
         <div className="relative">
           <input
             type="text"
+            aria-label="Search transactions"
             placeholder="Search description, member, or category..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 text-xs text-slate-900 transition focus-ring"
           />
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
         {/* Filter Pills */}
         <div className="flex gap-1.5 p-1 bg-slate-100 rounded-xl">
           <button
+            aria-pressed={filter === 'all'}
             onClick={() => setFilter('all')}
             className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition min-h-[36px] ${
               filter === 'all'
@@ -109,6 +112,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onSelectTransaction })
             All
           </button>
           <button
+            aria-pressed={filter === 'expenses'}
             onClick={() => setFilter('expenses')}
             className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition min-h-[36px] ${
               filter === 'expenses'
@@ -119,6 +123,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onSelectTransaction })
             Expenses
           </button>
           <button
+            aria-pressed={filter === 'payments'}
             onClick={() => setFilter('payments')}
             className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition min-h-[36px] ${
               filter === 'payments'
@@ -133,10 +138,10 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onSelectTransaction })
 
       {/* Date-Grouped Transaction List */}
       {dateKeys.length === 0 ? (
-        <div className="p-12 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+        <div className="p-12 text-center text-slate-500 bg-white rounded-2xl border border-slate-200">
           <Calendar className="w-8 h-8 text-slate-300 mx-auto mb-2" />
           <p className="text-xs font-bold text-slate-700">No records found</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">
+          <p className="text-[11px] text-slate-500 mt-0.5">
             {searchQuery ? 'Try adjusting your search query.' : 'Record an expense or payment to see it here.'}
           </p>
         </div>
@@ -144,12 +149,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onSelectTransaction })
         <div className="space-y-4">
           {dateKeys.map((date) => {
             const items = groupedByDate[date]
-            const formattedDateHeader = new Date(date + 'T00:00:00').toLocaleDateString(undefined, {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            })
+            const formattedDateHeader = formatDisplayDate(date)
 
             return (
               <div key={date} className="space-y-2">
@@ -158,7 +158,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onSelectTransaction })
                 </div>
 
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs divide-y divide-slate-100 overflow-hidden">
-                  {items.map((item, idx) => {
+                  {items.map((item) => {
                     const isExp = item.type === 'expense'
                     const exp = isExp ? (item.data as Expense) : null
                     const pay = !isExp ? (item.data as Payment) : null
@@ -179,9 +179,17 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onSelectTransaction })
 
                     return (
                       <div
-                        key={idx}
+                        key={item.data.id}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => onSelectTransaction(item)}
-                        className="p-3.5 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-50 active:bg-slate-100 transition min-h-[56px]"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            onSelectTransaction(item)
+                          }
+                        }}
+                        className="focus-ring p-3.5 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-50 active:bg-slate-100 transition min-h-[56px]"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div
@@ -202,10 +210,10 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onSelectTransaction })
                             <p className="text-xs font-bold text-slate-900 truncate">
                               {isExp ? exp?.description : `${payerName} paid ${recipientName}`}
                             </p>
-                            <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+                            <p className="text-[11px] text-slate-500 mt-0.5 truncate">
                               {isExp
                                 ? `Paid by ${payerName} • ${splitSummary}`
-                                : `Direct external payment`}
+                                : `${payerName} → ${recipientName}`}
                             </p>
                           </div>
                         </div>
@@ -218,8 +226,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onSelectTransaction })
                           >
                             {formatLKR(item.data.amount)}
                           </span>
-                          <span className="block text-[10px] font-semibold text-slate-400 capitalize">
-                            {isExp ? exp?.category || 'Expense' : 'Settlement'}
+                          <span className="block text-[11px] font-semibold text-slate-500 capitalize">
+                            {isExp ? exp?.category || 'Expense' : 'Payment'}
                           </span>
                         </div>
                       </div>
