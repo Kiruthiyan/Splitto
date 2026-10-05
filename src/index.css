@@ -1,0 +1,59 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #0284C7;
+    --color-primary-hover: #0369A1;
+    --color-accent: #38BDF8;
+    --color-bg: #F0F9FF;
+    --color-surface: #FFFFFF;
+    --color-selected: #E0F2FE;
+    --color-border: #BAE6FD;
+    --color-text: #0F172A;
+    --color-muted: #475569;
+  }
+
+  body {
+    @apply bg-[#F0F9FF] text-slate-900 font-sans antialiased min-h-screen selection:bg-sky-500/20 selection:text-sky-900;
+  }
+
+  input, select, textarea, button {
+    font-family: inherit;
+  }
+}
+
+/* Custom Scrollbar for desktop */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #BAE6FD;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #38BDF8;
+}
+
+/* Accessible focus ring */
+.focus-ring {
+  @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2;
+}
+
+/* Smooth modal fade */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-modal-in {
+  animation: fadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
