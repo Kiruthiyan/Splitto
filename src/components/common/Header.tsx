@@ -24,9 +24,6 @@ export const Header: React.FC<HeaderProps> = ({
             width="120"
             height="32"
           />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200/70">
-            Personal
-          </span>
         </div>
 
         {/* Right actions */}
