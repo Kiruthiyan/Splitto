@@ -212,6 +212,9 @@ export function validateBackupData(jsonString: string): BackupValidationResult {
       if (!isValidDateString(p.date)) {
         return { valid: false, error: 'Payment has an invalid date.' }
       }
+      if (p.purpose !== undefined && p.purpose !== 'settlement' && p.purpose !== 'advance') {
+        return { valid: false, error: 'Payment has an invalid purpose.' }
+      }
     }
 
     const validatedData: SplittoData = {

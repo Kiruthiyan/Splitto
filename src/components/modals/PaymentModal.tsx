@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useDialog } from '../common/useDialog'
 import { useSplitto } from '../../context/SplittoContext'
 import {
   formatLKR,
   parseLKRInput,
-  outstandingDebt,
+  pairBalance,
   centsToInputValue,
 } from '../../lib/money'
 import { Avatar } from '../common/Avatar'
-import type { Payment } from '../../types'
+import type { Member, Payment, PaymentPurpose } from '../../types'
 import {
   X,
   CreditCard,
@@ -38,7 +38,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 }) => {
   const {
     members,
-    balances,
     expenses,
     payments,
     recordPayment,
@@ -53,6 +52,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [note, setNote] = useState('')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [purpose, setPurpose] = useState<PaymentPurpose>('settlement')
+  const [confirmedKey, setConfirmedKey] = useState<string | null>(null)
+  const savingRef = useRef(false)
 
   // Initialize modal state
   useEffect(() => {
@@ -60,6 +62,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
     setErrorMsg(null)
     setIsDeleting(false)
+    setConfirmedKey(null)
+    savingRef.current = false
+    setPurpose(paymentToEdit?.purpose ?? 'settlement')
 
     if (paymentToEdit) {
       setFromMemberId(paymentToEdit.fromMemberId)
@@ -100,23 +105,28 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     parsedAmount = 0
   }
 
-  const currentFromBalance = balances.find((b) => b.memberId === fromMemberId)?.netBalance || 0
-  const currentToBalance = balances.find((b) => b.memberId === toMemberId)?.netBalance || 0
+  // Direct balance between the two selected members only (excluding the payment being edited)
+  const otherPayments = payments.filter((p) => p.id !== paymentToEdit?.id)
+  const hasPair = Boolean(fromMember && toMember && fromMemberId !== toMemberId)
+  const before = hasPair ? pairBalance(expenses, otherPayments, fromMemberId, toMemberId) : 0 // >0: payer owes recipient
+  const after = before - parsedAmount
+  // Payment overshoots: debt is cleared and flips direction (or none existed)
+  const needsConfirm = hasPair && parsedAmount > 0 && after < 0
+  const confirmKey = `${fromMemberId}|${toMemberId}|${parsedAmount}`
+  const awaitingConfirm = needsConfirm && confirmedKey === confirmKey
 
-  // Resulting balance preview:
-  // Payer sends money -> payer net balance becomes `currentFromBalance + parsedAmount`
-  // Recipient receives money -> recipient net balance becomes `currentToBalance - parsedAmount`
-  const previewFromBalance = currentFromBalance + parsedAmount
-  const previewToBalance = currentToBalance - parsedAmount
-
-  // Direct debt fromMember -> toMember, excluding the payment being edited
-  const outstanding = outstandingDebt(
-    expenses,
-    payments.filter((p) => p.id !== paymentToEdit?.id),
-    fromMemberId,
-    toMemberId
-  )
-  const isOverpayment = parsedAmount > 0 && parsedAmount > outstanding
+  const who = (m: Member) => (m.isMe ? 'You' : m.name)
+  const pairText = (bal: number) => {
+    if (!fromMember || !toMember || bal === 0) return 'Settled'
+    const [debtor, creditor] = bal > 0 ? [fromMember, toMember] : [toMember, fromMember]
+    return `${who(debtor)} ${debtor.isMe ? 'owe' : 'owes'} ${who(creditor)} ${formatLKR(Math.abs(bal))}`
+  }
+  const overpayText =
+    fromMember && toMember && needsConfirm
+      ? `After saving, ${toMember.isMe ? 'you' : toMember.name} will owe ${
+          fromMember.isMe ? 'you' : fromMember.name
+        } ${formatLKR(-after)}.`
+      : ''
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -137,14 +147,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       return
     }
 
-    if (isOverpayment) {
-      setErrorMsg(
-        outstanding === 0
-          ? 'Nothing is owed in that direction.'
-          : `Payment exceeds outstanding debt of ${formatLKR(outstanding)}.`
-      )
+    if (needsConfirm && !awaitingConfirm) {
+      setConfirmedKey(confirmKey)
       return
     }
+
+    if (savingRef.current) return
 
     const payload = {
       fromMemberId,
@@ -152,18 +160,22 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       amount: parsedAmount,
       date,
       note: note.trim() || undefined,
+      purpose,
     }
 
+    savingRef.current = true
     if (paymentToEdit) {
       const res = updatePayment(paymentToEdit.id, payload)
       if (!res.success) {
         setErrorMsg(res.error || 'Failed to update payment.')
+        savingRef.current = false
         return
       }
     } else {
       const res = recordPayment(payload)
       if (!res.success) {
         setErrorMsg(res.error || 'Failed to record payment.')
+        savingRef.current = false
         return
       }
     }
@@ -286,6 +298,33 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             </select>
           </div>
 
+          {/* Purpose (descriptive only) */}
+          <div>
+            <div id="payment-purpose-label" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+              Type
+            </div>
+            <div role="group" aria-labelledby="payment-purpose-label" className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl">
+              {(['settlement', 'advance'] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  aria-pressed={purpose === k}
+                  onClick={() => setPurpose(k)}
+                  className={`py-2 px-1 text-xs font-bold rounded-lg transition min-h-[40px] focus-ring ${
+                    purpose === k ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  {k === 'settlement' ? 'Settlement' : 'Advance'}
+                </button>
+              ))}
+            </div>
+            {purpose === 'advance' && (
+              <p className="text-[11px] text-slate-500 mt-1">
+                Money given before expenses are shared. It is counted like any other payment.
+              </p>
+            )}
+          </div>
+
           {/* Amount & Date */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -327,38 +366,20 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             </div>
           </div>
 
-          {/* Resulting Balance Preview Card */}
-          {parsedAmount > 0 && fromMember && toMember && (
+          {/* Direct balance preview between the two selected members */}
+          {parsedAmount > 0 && hasPair && (
             <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2 text-xs">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-                Resulting Balance Preview
+                Balance Between {who(fromMember!)} and {who(toMember!)}
               </span>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600">{fromMember.name}'s balance:</span>
-                <span className="font-bold text-slate-900">
-                  {formatLKR(currentFromBalance)} ➔{' '}
-                  <strong className={previewFromBalance >= 0 ? 'text-emerald-700' : 'text-rose-700'}>
-                    {formatLKR(previewFromBalance)}
-                  </strong>
-                </span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-600">Now:</span>
+                <span className="font-bold text-slate-900 text-right">{pairText(before)}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600">{toMember.name}'s balance:</span>
-                <span className="font-bold text-slate-900">
-                  {formatLKR(currentToBalance)} ➔{' '}
-                  <strong className={previewToBalance >= 0 ? 'text-emerald-700' : 'text-rose-700'}>
-                    {formatLKR(previewToBalance)}
-                  </strong>
-                </span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-600">After saving:</span>
+                <span className="font-bold text-slate-900 text-right">{pairText(after)}</span>
               </div>
-
-              {isOverpayment && (
-                <div className="pt-2 border-t border-slate-200 text-[11px] text-rose-700 font-semibold">
-                  {outstanding === 0
-                    ? 'Nothing is owed in that direction.'
-                    : `Exceeds outstanding debt of ${formatLKR(outstanding)}.`}
-                </div>
-              )}
             </div>
           )}
 
@@ -412,22 +433,59 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             </div>
           )}
 
+          {/* Overpayment confirmation */}
+          {awaitingConfirm && (
+            <div role="alert" className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-xs space-y-1">
+              <p className="font-bold">{overpayText}</p>
+              <p>
+                {before <= 0
+                  ? 'There is no outstanding debt in this direction.'
+                  : `This is more than the ${formatLKR(before)} currently owed.`}{' '}
+                Confirm to save it anyway.
+              </p>
+            </div>
+          )}
+
           {/* Action buttons */}
           <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 shrink-0">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition min-h-[44px]"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white text-xs font-bold rounded-xl shadow-md shadow-sky-600/20 transition min-h-[44px] flex items-center gap-1.5"
-            >
-              <CreditCard className="w-4 h-4" />
-              <span>{paymentToEdit ? 'Save Changes' : 'Record Payment'}</span>
-            </button>
+            {awaitingConfirm ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmedKey(null)
+                    document.getElementById('payment-3')?.focus()
+                  }}
+                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition min-h-[44px]"
+                >
+                  Edit Amount
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold rounded-xl shadow-md transition min-h-[44px] flex items-center gap-1.5"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>Confirm Payment</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition min-h-[44px]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white text-xs font-bold rounded-xl shadow-md shadow-sky-600/20 transition min-h-[44px] flex items-center gap-1.5"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>{paymentToEdit ? 'Save Changes' : 'Record Payment'}</span>
+                </button>
+              </>
+            )}
           </div>
         </form>
       </div>

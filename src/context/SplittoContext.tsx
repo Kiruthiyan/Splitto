@@ -352,7 +352,7 @@ export const SplittoProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // 9. Record Payment
   const recordPayment = (paymentInput: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const err = validatePaymentInput(paymentInput, members, expenses, payments)
+    const err = validatePaymentInput(paymentInput, members)
     if (err) return { success: false, error: err }
     const now = new Date().toISOString()
     const newPayment: Payment = {
@@ -372,12 +372,7 @@ export const SplittoProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // 10. Update Payment
   const updatePayment = (id: string, paymentInput: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const err = validatePaymentInput(
-      paymentInput,
-      members,
-      expenses,
-      payments.filter((p) => p.id !== id)
-    )
+    const err = validatePaymentInput(paymentInput, members)
     if (err) return { success: false, error: err }
     const now = new Date().toISOString()
     const updatedPayments = payments.map((p) => {

@@ -158,6 +158,13 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                   </span>
                 </div>
 
+                <div className="flex items-center justify-between text-slate-600">
+                  <span>Type:</span>
+                  <span className="font-bold text-slate-900">
+                    {pay?.purpose === 'advance' ? 'Advance' : 'Settlement'}
+                  </span>
+                </div>
+
                 {pay?.note && (
                   <div className="pt-2 border-t border-slate-200">
                     <span className="text-[11px] text-slate-500 block mb-0.5">Note:</span>

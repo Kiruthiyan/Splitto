@@ -7,6 +7,8 @@ export type ExpenseCategory =
   | 'shopping'
   | 'other'
 
+export type PaymentPurpose = 'settlement' | 'advance'
+
 export type SplitMethod = 'equal' | 'custom' | 'exact_single'
 
 export interface Member {
@@ -44,6 +46,7 @@ export interface Payment {
   amount: number // in cents (integer)
   date: string // YYYY-MM-DD
   note?: string
+  purpose?: PaymentPurpose // descriptive only; missing = 'settlement'
   createdAt: string
   updatedAt: string
 }

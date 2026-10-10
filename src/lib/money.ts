@@ -301,14 +301,25 @@ export function validateExpenseInput(
 }
 
 /**
+ * Signed direct balance between two members, from expense shares and payments between
+ * them only: > 0 means `a` owes `b`, < 0 means `b` owes `a`, 0 means even.
+ */
+export function pairBalance(expenses: Expense[], payments: Payment[], a: string, b: string): number {
+  const d = calculatePairwiseDebts(expenses, payments).find(
+    (x) => (x.fromMemberId === a && x.toMemberId === b) || (x.fromMemberId === b && x.toMemberId === a)
+  )
+  if (!d) return 0
+  return d.fromMemberId === a ? d.amount : -d.amount
+}
+
+/**
  * Returns an error string, or null if payment is valid.
- * `expenses`/`payments` must already exclude the payment being edited (if any).
+ * Any positive amount between two different members is allowed (settlement, partial,
+ * overpayment or advance); the UI asks for confirmation when it flips the direction of debt.
  */
 export function validatePaymentInput(
   p: Pick<Payment, 'fromMemberId' | 'toMemberId' | 'amount' | 'date'>,
-  members: Pick<Member, 'id'>[],
-  expenses: Expense[],
-  payments: Payment[]
+  members: Pick<Member, 'id'>[]
 ): string | null {
   const ids = new Set(members.map((m) => m.id))
   if (!ids.has(p.fromMemberId)) return 'Invalid payer.'
@@ -316,32 +327,5 @@ export function validatePaymentInput(
   if (p.fromMemberId === p.toMemberId) return 'Payer and recipient cannot be the same member.'
   if (!Number.isSafeInteger(p.amount) || p.amount <= 0) return 'Payment amount must be greater than zero.'
   if (!isValidDateString(p.date)) return 'Invalid date.'
-  const owed = outstandingDebt(expenses, payments, p.fromMemberId, p.toMemberId)
-  if (p.amount > owed) {
-    return owed === 0
-      ? 'Nothing is owed in that direction.'
-      : `Payment exceeds outstanding debt of ${formatLKR(owed)}.`
-  }
   return null
-}
-
-/**
- * Legacy-data check: replays payments oldest-first and returns those that exceeded
- * the direct debt outstanding at that point. Read-only; never alters data.
- */
-export function findInvalidPayments(
-  members: Pick<Member, 'id'>[],
-  expenses: Expense[],
-  payments: Payment[]
-): Payment[] {
-  const ordered = [...payments].sort(
-    (a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt)
-  )
-  const applied: Payment[] = []
-  const invalid: Payment[] = []
-  for (const p of ordered) {
-    if (validatePaymentInput(p, members, expenses, applied)) invalid.push(p)
-    applied.push(p)
-  }
-  return invalid
 }

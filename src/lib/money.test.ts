@@ -318,7 +318,7 @@ import {
   outstandingDebt,
   validateExpenseInput,
   validatePaymentInput,
-  findInvalidPayments,
+  pairBalance,
 } from './money.ts'
 
 const mk = (id: string, name: string, isMe = false): Member => ({
@@ -436,14 +436,17 @@ assert.equal(debt([big], [m1, m2, m3], 'niro', 'you'), 0)
 assert.equal(calculateTotalExpenses([big]), 200000, 'payments never change expense totals')
 
 // T15: overpayment / invalid payments
-assert.ok(validatePaymentInput(pay('niro', 'you', 100001), five, [big], []))
-assert.ok(validatePaymentInput(pay('niro', 'you', 40001), five, [big], [p1]))
-assert.equal(validatePaymentInput(pay('niro', 'you', 40000), five, [big], [p1]), null)
-assert.ok(validatePaymentInput(pay('you', 'niro', 1), five, [big], []), 'wrong direction')
-assert.ok(validatePaymentInput(pay('niro', 'niro', 1), five, [big], []))
-assert.ok(validatePaymentInput(pay('niro', 'you', 0), five, [big], []))
-assert.ok(validatePaymentInput(pay('ghost', 'you', 1), five, [big], []))
-assert.ok(validatePaymentInput(pay('niro', 'you', 1, 'nope'), five, [big], []))
+// T15: any positive payment between two different members is valid (overpayment, no debt, wrong direction)
+assert.equal(validatePaymentInput(pay('niro', 'you', 100001), five), null, 'overpayment allowed')
+assert.equal(validatePaymentInput(pay('you', 'niro', 1), five), null, 'opposite direction allowed')
+assert.equal(validatePaymentInput(pay('arun', 'ravi', 500), five), null, 'no debt allowed')
+assert.ok(validatePaymentInput(pay('niro', 'niro', 1), five))
+assert.ok(validatePaymentInput(pay('niro', 'you', 0), five))
+assert.ok(validatePaymentInput(pay('niro', 'you', -5), five))
+assert.ok(validatePaymentInput(pay('niro', 'you', 10.5), five), 'fractional cents rejected')
+assert.ok(validatePaymentInput(pay('niro', 'you', Number.MAX_SAFE_INTEGER + 1), five))
+assert.ok(validatePaymentInput(pay('ghost', 'you', 1), five))
+assert.ok(validatePaymentInput(pay('niro', 'you', 1, 'nope'), five))
 
 // T8: edit expense -> recalculated
 const edited = eq('Big', 100000, 'you', ['you', 'niro', 'arun'])
@@ -460,7 +463,6 @@ assert.equal(debt([big], [p1], 'niro', 'you'), 40000)
 const p1edited = { ...p1, amount: 80000 }
 assert.equal(debt([big], [p1edited], 'niro', 'you'), 20000)
 assert.equal(debt([big], [], 'niro', 'you'), 100000, 'delete payment restores debt')
-assert.equal(validatePaymentInput(p1edited, five, [big], []), null, 'edit validates excluding itself')
 
 // T16: invariant across a messy ledger; pairwise agrees with balances
 const ledger = [bf, lunch, taxi, dinner3, A, B, C, D, custom]
@@ -487,12 +489,77 @@ assert.deepEqual(
 )
 assert.equal(validateBackupData(JSON.stringify({ ...snapshot, payments: [{ ...pays[0], date: 'bad' }] })).valid, false)
 
-// Legacy overpayment detection: read-only, order-aware
-const legacyOver = pay('niro', 'you', 100001)
-assert.deepEqual(findInvalidPayments(five, [big], [legacyOver]), [legacyOver])
-assert.deepEqual(findInvalidPayments(five, [big], [m1, m2, m3]), [])
-assert.equal(legacyOver.amount, 100001, 'detection never mutates data')
-
 console.log('✓ Direct debts, payments, edit/delete, backup round-trip and five-member scenarios verified')
+// ---------------------------------------------------------------------------
+// Partial settlements, overpayments and advances
+// ---------------------------------------------------------------------------
+const owe = (e: Expense[], pm: Payment[], a: string, b: string) => pairBalance(e, pm, a, b) // >0: a owes b
+const advance = (from: string, to: string, amount: number): Payment => ({ ...pay(from, to, amount), purpose: 'advance' })
+
+// Debt Rs. 2,865: you owe Niro (Niro paid 5,730 split with you)
+const dinnerDebt = eq('Dinner', 573000, 'niro', ['you', 'niro'])
+assert.equal(owe([dinnerDebt], [], 'you', 'niro'), 286500)
+assert.equal(owe([dinnerDebt], [pay('you', 'niro', 200000)], 'you', 'niro'), 86500, 'partial: Rs. 865 remains')
+assert.equal(owe([dinnerDebt], [pay('you', 'niro', 286500)], 'you', 'niro'), 0, 'exact: settled')
+assert.equal(owe([dinnerDebt], [pay('you', 'niro', 400000)], 'you', 'niro'), -113500, 'over: Niro owes you Rs. 1,135')
+assert.equal(owe([dinnerDebt], [pay('you', 'niro', 400000)], 'niro', 'you'), 113500)
+
+// Advance with no prior debt: Niro gives you Rs. 4,000 => you owe Niro Rs. 4,000
+const adv = advance('niro', 'you', 400000)
+assert.equal(owe([], [adv], 'you', 'niro'), 400000)
+assert.equal(net(five, [], [adv]).you, -400000)
+assert.equal(net(five, [], [adv]).niro, 400000)
+assert.equal(calculateTotalExpenses([]), 0, 'advance is not an expense')
+
+// You later pay expenses where Niro's assigned shares total 3,000 / 4,000 / 4,500
+const niroShares = (amt: number): Expense => ({
+  ...eq('For Niro', amt, 'you', ['niro']),
+  splitMethod: 'exact_single',
+})
+assert.equal(owe([niroShares(300000)], [adv], 'you', 'niro'), 100000, 'owe Rs. 1,000')
+assert.equal(owe([niroShares(400000)], [adv], 'you', 'niro'), 0, 'settled')
+assert.equal(owe([niroShares(450000)], [adv], 'you', 'niro'), -50000, 'Niro owes Rs. 500')
+
+// Your own share does not offset the advance: Rs. 1,000 bill split equally => only Niro's 500 counts
+const bill = eq('Bill', 100000, 'you', ['you', 'niro'])
+assert.equal(owe([bill], [adv], 'you', 'niro'), 350000, 'still owe Rs. 3,500')
+
+// A payment only changes the selected pair; other pairs unchanged
+const withArun = eq('Cab', 100000, 'you', ['you', 'arun'])
+const base = [dinnerDebt, withArun]
+const beforeArun = owe(base, [], 'arun', 'you')
+const beforeNiroArun = owe(base, [], 'niro', 'arun')
+const settled = [pay('you', 'niro', 400000)]
+assert.equal(owe(base, settled, 'arun', 'you'), beforeArun, 'you-arun untouched')
+assert.equal(owe(base, settled, 'niro', 'arun'), beforeNiroArun, 'niro-arun untouched')
+assert.equal(owe(base, settled, 'you', 'niro'), -113500)
+
+// Invariants with advances and overpayments mixed in
+const mixed = [dinnerDebt, withArun, bill]
+const mixedPays = [adv, pay('you', 'niro', 400000), pay('ravi', 'kavi', 700)]
+sumZero(five, mixed, mixedPays)
+assert.equal(calculateTotalExpenses(mixed), 573000 + 100000 + 100000, 'payments never counted as expenses')
+
+// Edit / delete payment recalculates
+const adv2 = advance('niro', 'you', 400000)
+assert.equal(owe([bill], [adv2], 'you', 'niro'), 350000)
+assert.equal(owe([bill], [{ ...adv2, amount: 500000 }], 'you', 'niro'), 450000, 'edit')
+assert.equal(owe([bill], [], 'you', 'niro'), -50000, 'delete: back to Niro owing share only')
+
+// Persistence: reload round-trip, new purpose field, and legacy payments without it
+const legacyPay = pay('niro', 'you', 1000)
+const roundTrip = validateBackupData(
+  JSON.stringify({ schemaVersion: 1, revision: 1, operatorName: 'You', members: five, expenses: [bill], payments: [adv2, legacyPay] })
+)
+assert.equal(roundTrip.valid, true, roundTrip.error)
+assert.equal(roundTrip.data!.payments[0].purpose, 'advance')
+assert.equal(roundTrip.data!.payments[1].purpose, undefined, 'older record untouched')
+assert.deepEqual(net(five, roundTrip.data!.expenses, roundTrip.data!.payments), net(five, [bill], [adv2, legacyPay]))
+assert.equal(
+  validateBackupData(JSON.stringify({ schemaVersion: 1, revision: 1, members: five, expenses: [], payments: [{ ...legacyPay, purpose: 'gift' }] })).valid,
+  false
+)
+
+console.log('✓ Partial settlements, overpayments and advances verified')
 console.log('ALL FINANCIAL VERIFICATION TESTS PASSED SUCCESSFULLY!')
 

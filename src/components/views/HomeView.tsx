@@ -1,6 +1,6 @@
 import React from 'react'
 import { useSplitto } from '../../context/SplittoContext'
-import { formatLKR, findInvalidPayments } from '../../lib/money'
+import { formatLKR } from '../../lib/money'
 import { formatDisplayDate } from '../../lib/format'
 import { Avatar } from '../common/Avatar'
 import { Badge } from '../common/Badge'
@@ -28,8 +28,6 @@ interface HomeViewProps {
   onSelectTransaction: (item: { type: 'expense' | 'payment'; data: Expense | Payment }) => void
 }
 
-const LEGACY_WARNING_KEY = 'splitto_legacy_payment_warning_dismissed'
-
 export const HomeView: React.FC<HomeViewProps> = ({
   onOpenAddExpense,
   onOpenRecordPayment,
@@ -52,26 +50,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   const displayName = (id: string, fallback: string) =>
     members.find((m) => m.id === id)?.isMe ? 'You' : fallback
-
-  const invalidPaymentCount = React.useMemo(
-    () => findInvalidPayments(members, expenses, payments).length,
-    [members, expenses, payments]
-  )
-  const [warningDismissed, setWarningDismissed] = React.useState(() => {
-    try {
-      return localStorage.getItem(LEGACY_WARNING_KEY) === '1'
-    } catch {
-      return false
-    }
-  })
-  const dismissWarning = () => {
-    setWarningDismissed(true)
-    try {
-      localStorage.setItem(LEGACY_WARNING_KEY, '1')
-    } catch {
-      // ignore: warning simply reappears next visit
-    }
-  }
 
   // Combine recent transactions (expenses and payments) sorted newest first
   const recentTransactions = React.useMemo(() => {
@@ -167,17 +145,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
         )}
       </div>
-
-      {invalidPaymentCount > 0 && !warningDismissed && (
-        <div className="p-3 rounded-2xl border border-amber-300 bg-amber-50 text-xs text-amber-900 flex items-start justify-between gap-3">
-          <span>
-            {invalidPaymentCount} saved {invalidPaymentCount === 1 ? "payment is" : "payments are"} larger than the amount owed when {invalidPaymentCount === 1 ? "it was" : "they were"} recorded. Your records have not been changed.
-          </span>
-          <button onClick={dismissWarning} className="font-bold underline shrink-0 min-h-[44px] px-2 focus-ring">
-            Dismiss
-          </button>
-        </div>
-      )}
 
       {/* 3. QUICK STATS: Total Expenses, My Total Paid, My Expense Share */}
       <div className="grid grid-cols-3 gap-2.5">
@@ -390,7 +357,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       <p className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
                         <span>{formatDisplayDate(tx.date)}</span>
                         <span>•</span>
-                        <span>{isExp ? `Paid by ${payerName}` : 'Payment'}</span>
+                        <span>{isExp ? `Paid by ${payerName}` : pay?.purpose === 'advance' ? 'Advance' : 'Payment'}</span>
                       </p>
                     </div>
                   </div>
@@ -400,7 +367,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       {formatLKR(tx.data.amount)}
                     </span>
                     <span className="block text-[11px] text-slate-500 font-medium capitalize">
-                      {isExp ? exp?.category || 'Expense' : 'Payment'}
+                      {isExp ? exp?.category || 'Expense' : pay?.purpose === 'advance' ? 'Advance' : 'Payment'}
                     </span>
                   </div>
                 </div>

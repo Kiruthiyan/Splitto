@@ -213,7 +213,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onSelectTransaction })
                             <p className="text-[11px] text-slate-500 mt-0.5 truncate">
                               {isExp
                                 ? `Paid by ${payerName} • ${splitSummary}`
-                                : `${payerName} → ${recipientName}`}
+                                : `${payerName} → ${recipientName}${pay?.purpose === 'advance' ? ' • Advance' : ''}`}
                             </p>
                           </div>
                         </div>
@@ -227,7 +227,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onSelectTransaction })
                             {formatLKR(item.data.amount)}
                           </span>
                           <span className="block text-[11px] font-semibold text-slate-500 capitalize">
-                            {isExp ? exp?.category || 'Expense' : 'Payment'}
+                            {isExp ? exp?.category || 'Expense' : pay?.purpose === 'advance' ? 'Advance' : 'Payment'}
                           </span>
                         </div>
                       </div>
